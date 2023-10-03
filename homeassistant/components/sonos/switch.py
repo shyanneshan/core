@@ -94,6 +94,10 @@ async def async_setup_entry(
             hass, config_entry, speaker.household_id, alarm_ids
         )
         entities = []
+        # TODO: a tuple right now, better to use set for faster membership check
+        # created_alarms = {}
+        # verified_new_alarms = if alarm_id not in created_alarms
+        # for alarm in verified_new_alarms:... 
         created_alarms = (
             hass.data[DATA_SONOS].alarms[speaker.household_id].created_alarm_ids
         )
