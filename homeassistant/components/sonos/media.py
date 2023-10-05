@@ -151,14 +151,10 @@ class SonosMedia:
         track_uri = evars["enqueued_transport_uri"] or evars["current_track_uri"]
         audio_source = self.soco.music_source_from_uri(track_uri)
 
-        self.set_basic_track_info(update_position=state_changed)
+        self.set_basic_track_info(update_position=state_changed)  #
 
         if ct_md := evars["current_track_meta_data"]:
-            if not self.image_url:
-                if album_art_uri := getattr(ct_md, "album_art_uri", None):
-                    self.image_url = self.library.build_album_art_full_uri(
-                        album_art_uri
-                    )
+            self.set_album_art(ct_md)
 
         et_uri_md = evars["enqueued_transport_uri_meta_data"]
         if isinstance(et_uri_md, DidlPlaylistContainer):
@@ -168,18 +164,28 @@ class SonosMedia:
             self.queue_size = int(queue_size)
 
         if audio_source == MUSIC_SRC_RADIO:
-            if et_uri_md:
-                self.channel = et_uri_md.title
-
-            # Extra guards for S1 compatibility
-            if ct_md and hasattr(ct_md, "radio_show") and ct_md.radio_show:
-                radio_show = ct_md.radio_show.split(",")[0]
-                self.channel = " • ".join(filter(None, [self.channel, radio_show]))
-
-            if isinstance(et_uri_md, DidlAudioBroadcast):
-                self.title = self.title or self.channel
+            self.handle_radio_source(ct_md, et_uri_md)
 
         self.write_media_player_states()
+
+    def set_album_art(self, ct_md):
+        """Set album art if it doesn't already exist."""
+        if not self.image_url:
+            if album_art_uri := getattr(ct_md, "album_art_uri", None):
+                self.image_url = self.library.build_album_art_full_uri(album_art_uri)
+
+    def handle_radio_source(self, ct_md, et_uri_md):
+        """Set channel and title details for a radio source."""
+        if et_uri_md:
+            self.channel = et_uri_md.title
+
+            # Extra guards for S1 compatibility
+        if ct_md and hasattr(ct_md, "radio_show") and ct_md.radio_show:
+            radio_show = ct_md.radio_show.split(",")[0]
+            self.channel = " • ".join(filter(None, [self.channel, radio_show]))
+
+        if isinstance(et_uri_md, DidlAudioBroadcast):
+            self.title = self.title or self.channel
 
     @soco_error()
     def poll_media(self) -> None:
