@@ -151,7 +151,7 @@ class SonosMedia:
         track_uri = evars["enqueued_transport_uri"] or evars["current_track_uri"]
         audio_source = self.soco.music_source_from_uri(track_uri)
 
-        self.set_basic_track_info(update_position=state_changed)  #
+        self.set_basic_track_info(update_position=state_changed)
 
         if ct_md := evars["current_track_meta_data"]:
             self.set_album_art(ct_md)
