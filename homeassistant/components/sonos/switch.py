@@ -94,16 +94,13 @@ async def async_setup_entry(
             hass, config_entry, speaker.household_id, alarm_ids
         )
         entities = []
-        # TODO: a tuple right now, better to use set for faster membership check
-        # created_alarms = {}
-        # verified_new_alarms = if alarm_id not in created_alarms
-        # for alarm in verified_new_alarms:... 
         created_alarms = (
             hass.data[DATA_SONOS].alarms[speaker.household_id].created_alarm_ids
         )
-        for alarm_id in alarm_ids:
-            if alarm_id in created_alarms:
-                continue
+        new_alarms = [
+            alarm_id for alarm_id in alarm_ids if alarm_id not in created_alarms
+        ]
+        for alarm_id in new_alarms:
             _LOGGER.debug("Creating alarm %s on %s", alarm_id, speaker.zone_name)
             created_alarms.add(alarm_id)
             entities.append(SonosAlarmEntity(alarm_id, speaker))
