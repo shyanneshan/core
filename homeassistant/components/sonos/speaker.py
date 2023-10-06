@@ -1012,73 +1012,56 @@ class SonosSpeaker:
         self.snapshot_group = []
 
     @staticmethod
-    async def restore_multi(
-        hass: HomeAssistant, speakers: list[SonosSpeaker], with_group: bool
-    ) -> None:
+    async def restore_multi(hass: HomeAssistant, speakers: list[SonosSpeaker], with_group: bool) -> None:
         """Restore snapshots for all the speakers."""
 
-        def _restore_groups(
-            speakers: set[SonosSpeaker], with_group: bool
-        ) -> list[list[SonosSpeaker]]:
-            """Pause all current coordinators and restore groups."""
-            for speaker in (s for s in speakers if s.is_coordinator):
-                if (
-                    speaker.media.playback_status == SONOS_STATE_PLAYING
-                    and "Pause" in speaker.soco.available_actions
-                ):
-                    try:
-                        speaker.soco.pause()
-                    except SoCoUPnPException as exc:
-                        _LOGGER.debug(
-                            "Pause failed during restore of %s: %s",
-                            speaker.zone_name,
-                            speaker.soco.available_actions,
-                            exc_info=exc,
-                        )
+        def _pause_speaker_if_needed(speaker: SonosSpeaker) -> None:
+            if speaker.media.playback_status != SONOS_STATE_PLAYING:
+                return
+            if "Pause" not in speaker.soco.available_actions:
+                return
+            try:
+                speaker.soco.pause()
+            except SoCoUPnPException as exc:
+                _LOGGER.debug(
+                    "Pause failed during restore of %s: %s",
+                    speaker.zone_name,
+                    speaker.soco.available_actions,
+                    exc_info=exc,
+                )
 
-            groups: list[list[SonosSpeaker]] = []
-            if not with_group:
-                return groups
-
-            # Unjoin non-coordinator speakers not contained in the desired snapshot group
-            #
-            # If a coordinator is unjoined from its group, another speaker from the group
-            # will inherit the coordinator's playqueue and its own playqueue will be lost
-            speakers_to_unjoin = set()
+        def get_speakers_to_unjoin(speakers: set[SonosSpeaker]) -> set[SonosSpeaker]:
+            to_unjoin = set()
             for speaker in speakers:
                 if speaker.sonos_group == speaker.snapshot_group:
                     continue
+                for s in speaker.sonos_group[1:]:
+                    if s not in speaker.snapshot_group:
+                        to_unjoin.add(s)
+            return to_unjoin
 
-                speakers_to_unjoin.update(
-                    {
-                        s
-                        for s in speaker.sonos_group[1:]
-                        if s not in speaker.snapshot_group
-                    }
-                )
-
-            for speaker in speakers_to_unjoin:
-                speaker.unjoin()
-
-            # Bring back the original group topology
-            for speaker in (s for s in speakers if s.snapshot_group):
-                assert len(speaker.snapshot_group)
-                if speaker.snapshot_group[0] == speaker:
-                    if speaker.snapshot_group not in (speaker.sonos_group, [speaker]):
-                        speaker.join(speaker.snapshot_group)
-                    groups.append(speaker.snapshot_group.copy())
-
+        def _restore_group_topology(speakers: set[SonosSpeaker]) -> list[list[SonosSpeaker]]:
+            groups = []
+            for speaker in speakers:
+                if not speaker.snapshot_group:
+                    continue
+                if speaker.snapshot_group[0] != speaker:
+                    continue
+                if speaker.snapshot_group in (speaker.sonos_group, [speaker]):
+                    continue
+                speaker.join(speaker.snapshot_group)
+                groups.append(speaker.snapshot_group.copy())
             return groups
 
-        def _restore_players(speakers: Collection[SonosSpeaker]) -> None:
-            """Restore state of all players."""
-            for speaker in (s for s in speakers if not s.is_coordinator):
-                speaker.restore()
+        coordinators = [s for s in speakers if s.is_coordinator]
+        for speaker in coordinators:
+            _pause_speaker_if_needed(speaker)
 
-            for speaker in (s for s in speakers if s.is_coordinator):
-                speaker.restore()
+        if with_group:
+            to_unjoin = get_speakers_to_unjoin(speakers)
+            for speaker in to_unjoin:
+                speaker.unjoin()
 
-        # Find all affected players
         speakers_set = {s for s in speakers if s.soco_snapshot}
         if missing_snapshots := set(speakers) - speakers_set:
             raise HomeAssistantError(
@@ -1088,15 +1071,18 @@ class SonosSpeaker:
 
         if with_group:
             for speaker in [s for s in speakers_set if s.snapshot_group]:
-                assert len(speaker.snapshot_group)
                 speakers_set.update(speaker.snapshot_group)
 
         async with hass.data[DATA_SONOS].topology_condition:
             groups = await hass.async_add_executor_job(
-                _restore_groups, speakers_set, with_group
+                _restore_group_topology, speakers_set
             )
             await SonosSpeaker.wait_for_groups(hass, groups)
-            await hass.async_add_executor_job(_restore_players, speakers_set)
+            non_coordinators = [s for s in speakers if not s.is_coordinator]
+            coordinators = [s for s in speakers if s.is_coordinator]
+            for speaker in non_coordinators + coordinators:
+                speaker.restore()
+
 
     @staticmethod
     async def wait_for_groups(
