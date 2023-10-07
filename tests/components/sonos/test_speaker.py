@@ -51,3 +51,25 @@ async def test_subscription_creation_fails(
         await hass.async_block_till_done()
 
     assert speaker._subscriptions
+
+
+async def test_create_update_groups_coro_handles_none_event(
+    hass: HomeAssistant, async_autosetup_sonos, soco, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that create_update_groups_coro handles None event."""
+    speaker = list(hass.data[DATA_SONOS].discovered.values())[0]
+    assert speaker.soco is soco
+
+    with patch.object(speaker, "async_write_entity_states") as mock_write_entity_states:
+        coro = speaker.create_update_groups_coro(None)
+        await coro
+
+        assert not mock_write_entity_states.called
+        assert not speaker.coordinator
+        assert speaker.sonos_group == [speaker]
+
+        for member in speaker.sonos_group[1:]:
+            assert not member.coordinator
+            assert member.sonos_group == [speaker]
+
+    assert "Regrouped" not in caplog.text
