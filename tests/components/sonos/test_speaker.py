@@ -53,10 +53,10 @@ async def test_subscription_creation_fails(
     assert speaker._subscriptions
 
 
-async def test_create_update_groups_coro_handles_none_event(
+async def test_create_update_groups_coro(
     hass: HomeAssistant, async_autosetup_sonos, soco, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test that create_update_groups_coro handles None event."""
+    """Test that create_update_groups_coro."""
     speaker = list(hass.data[DATA_SONOS].discovered.values())[0]
     assert speaker.soco is soco
 
