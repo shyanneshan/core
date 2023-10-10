@@ -5,7 +5,6 @@ from collections.abc import Callable
 import logging
 from typing import TYPE_CHECKING, Any, Concatenate, ParamSpec, TypeVar, overload
 
-from requests.exceptions import Timeout
 from soco import SoCo
 from soco.exceptions import SoCoException, SoCoUPnPException
 

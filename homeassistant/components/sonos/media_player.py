@@ -659,7 +659,7 @@ class SonosMediaPlayerEntity(SonosEntity, MediaPlayerEntity):
         if share_link.is_share_link(media_id):
             self._share_link(enqueue, media_id, share_link, soco)
         elif media_type in {MediaType.MUSIC, MediaType.TRACK}:
-            self._music_or_track(enqueue, is_radio, soco)
+            self._music_or_track(enqueue, media_id, is_radio, soco)
         elif media_type == MediaType.PLAYLIST:
             self._playlist(media_id, media_type, soco)
         elif media_type in PLAYABLE_MEDIA_TYPES:
