@@ -97,9 +97,10 @@ async def async_setup_entry(
         created_alarms = (
             hass.data[DATA_SONOS].alarms[speaker.household_id].created_alarm_ids
         )
-        for alarm_id in alarm_ids:
-            if alarm_id in created_alarms:
-                continue
+        new_alarms = [
+            alarm_id for alarm_id in alarm_ids if alarm_id not in created_alarms
+        ]
+        for alarm_id in new_alarms:
             _LOGGER.debug("Creating alarm %s on %s", alarm_id, speaker.zone_name)
             created_alarms.add(alarm_id)
             entities.append(SonosAlarmEntity(alarm_id, speaker))
