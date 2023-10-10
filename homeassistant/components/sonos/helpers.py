@@ -64,17 +64,17 @@ def soco_error(
                 result = funct(self, *args, **kwargs)
             except (OSError, SoCoException, SoCoUPnPException) as err:
                 error_code = getattr(err, "error_code", None)
-                function = funct.__qualname__
+                function_name = funct.__qualname__
                 if errorcodes and error_code in errorcodes:
                     _LOGGER.debug(
-                        "Error code %s ignored in call to %s", error_code, function
+                        "Error code %s ignored in call to %s", error_code, function_name
                     )
                     return None
 
                 if (target := _find_target_identifier(self, args_soco)) is None:
                     raise RuntimeError("Unexpected use of soco_error") from err
 
-                message = f"Error calling {function} on {target}: {err}"
+                message = f"Error calling {function_name} on {target}: {err}"
                 raise SonosUpdateError(message) from err
 
             dispatch_soco = args_soco or self.soco  # type: ignore[union-attr]
