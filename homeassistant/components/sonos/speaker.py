@@ -880,6 +880,7 @@ class SonosSpeaker:
         _LOGGER.debug("Regrouped %s: %s", self.zone_name, self.sonos_group_entities)
 
     def build_sonos_group(self, group: list[str], entity_registry) -> tuple[list, list]:
+        """Group together entities that are related to sonos."""
         sonos_group = []
         sonos_group_entities = []
         for uid in group:
@@ -891,7 +892,7 @@ class SonosSpeaker:
                     self.zone_name,
                     uid,
                 )
-                return (None, None)
+                return ([], [])
 
             self._group_members_missing.discard(uid)
             sonos_group.append(speaker)
@@ -1015,7 +1016,9 @@ class SonosSpeaker:
         self.snapshot_group = []
 
     @staticmethod
-    async def restore_multi(hass: HomeAssistant, speakers: list[SonosSpeaker], with_group: bool) -> None:
+    async def restore_multi(
+        hass: HomeAssistant, speakers: list[SonosSpeaker], with_group: bool
+    ) -> None:
         """Restore snapshots for all the speakers."""
 
         def _pause_speaker_if_needed(speaker: SonosSpeaker) -> None:
@@ -1043,7 +1046,9 @@ class SonosSpeaker:
                         to_unjoin.add(s)
             return to_unjoin
 
-        def _restore_group_topology(speakers: set[SonosSpeaker]) -> list[list[SonosSpeaker]]:
+        def _restore_group_topology(
+            speakers: set[SonosSpeaker],
+        ) -> list[list[SonosSpeaker]]:
             groups = []
             for speaker in speakers:
                 if not speaker.snapshot_group:
@@ -1061,7 +1066,7 @@ class SonosSpeaker:
             _pause_speaker_if_needed(speaker)
 
         if with_group:
-            to_unjoin = get_speakers_to_unjoin(speakers)
+            to_unjoin = get_speakers_to_unjoin(set(speakers))
             for speaker in to_unjoin:
                 speaker.unjoin()
 
@@ -1085,7 +1090,6 @@ class SonosSpeaker:
             coordinators = [s for s in speakers if s.is_coordinator]
             for speaker in non_coordinators + coordinators:
                 speaker.restore()
-
 
     @staticmethod
     async def wait_for_groups(
