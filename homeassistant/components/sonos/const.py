@@ -49,6 +49,14 @@ EXPANDABLE_MEDIA_TYPES = [
     SONOS_PLAYLISTS,
 ]
 
+CONTAINER_ALBUM_MUSICALBUM = "object.container.album.musicAlbum"
+CONTAINER_GENRE_MUSICGENRE = "object.container.genre.musicGenre"
+CONTAINER_PERSON_COMPOSER = "object.container.person.composer"
+CONTAINER_PERSON_MUSICARTIST = "object.container.person.musicArtist"
+CONTAINER_PLAYLISTCONTAINER_SAMEARTIST = "object.container.playlistContainer.sameArtist"
+CONTAINER_PLAYLISTCONTAINER = "object.container.playlistContainer"
+ITEM_AUDIOITEM_MUSICTRACK = "object.item.audioItem.musicTrack"
+
 SONOS_TO_MEDIA_CLASSES = {
     SONOS_ALBUM: MediaClass.ALBUM,
     SONOS_ALBUM_ARTIST: MediaClass.ARTIST,
@@ -57,14 +65,14 @@ SONOS_TO_MEDIA_CLASSES = {
     SONOS_GENRE: MediaClass.GENRE,
     SONOS_PLAYLISTS: MediaClass.PLAYLIST,
     SONOS_TRACKS: MediaClass.TRACK,
-    "object.container.album.musicAlbum": MediaClass.ALBUM,
-    "object.container.genre.musicGenre": MediaClass.PLAYLIST,
-    "object.container.person.composer": MediaClass.PLAYLIST,
-    "object.container.person.musicArtist": MediaClass.ARTIST,
-    "object.container.playlistContainer.sameArtist": MediaClass.ARTIST,
-    "object.container.playlistContainer": MediaClass.PLAYLIST,
+    CONTAINER_ALBUM_MUSICALBUM: MediaClass.ALBUM,
+    CONTAINER_GENRE_MUSICGENRE: MediaClass.PLAYLIST,
+    CONTAINER_PERSON_COMPOSER: MediaClass.PLAYLIST,
+    CONTAINER_PERSON_MUSICARTIST: MediaClass.ARTIST,
+    CONTAINER_PLAYLISTCONTAINER_SAMEARTIST: MediaClass.ARTIST,
+    CONTAINER_PLAYLISTCONTAINER: MediaClass.PLAYLIST,
     "object.item": MediaClass.TRACK,
-    "object.item.audioItem.musicTrack": MediaClass.TRACK,
+    ITEM_AUDIOITEM_MUSICTRACK: MediaClass.TRACK,
     "object.item.audioItem.audioBroadcast": MediaClass.GENRE,
 }
 
@@ -76,13 +84,13 @@ SONOS_TO_MEDIA_TYPES = {
     SONOS_GENRE: MediaType.GENRE,
     SONOS_PLAYLISTS: MediaType.PLAYLIST,
     SONOS_TRACKS: MediaType.TRACK,
-    "object.container.album.musicAlbum": MediaType.ALBUM,
-    "object.container.genre.musicGenre": MediaType.PLAYLIST,
-    "object.container.person.composer": MediaType.PLAYLIST,
-    "object.container.person.musicArtist": MediaType.ARTIST,
-    "object.container.playlistContainer.sameArtist": MediaType.ARTIST,
-    "object.container.playlistContainer": MediaType.PLAYLIST,
-    "object.item.audioItem.musicTrack": MediaType.TRACK,
+    CONTAINER_ALBUM_MUSICALBUM: MediaType.ALBUM,
+    CONTAINER_GENRE_MUSICGENRE: MediaType.PLAYLIST,
+    CONTAINER_PERSON_COMPOSER: MediaType.PLAYLIST,
+    CONTAINER_PERSON_MUSICARTIST: MediaType.ARTIST,
+    CONTAINER_PLAYLISTCONTAINER_SAMEARTIST: MediaType.ARTIST,
+    CONTAINER_PLAYLISTCONTAINER: MediaType.PLAYLIST,
+    ITEM_AUDIOITEM_MUSICTRACK: MediaType.TRACK,
 }
 
 MEDIA_TYPES_TO_SONOS: dict[MediaType | str, str] = {
@@ -103,14 +111,14 @@ SONOS_TYPES_MAPPING = {
     "A:GENRE": SONOS_GENRE,
     "A:PLAYLISTS": SONOS_PLAYLISTS,
     "A:TRACKS": SONOS_TRACKS,
-    "object.container.album.musicAlbum": SONOS_ALBUM,
-    "object.container.genre.musicGenre": SONOS_GENRE,
-    "object.container.person.composer": SONOS_COMPOSER,
-    "object.container.person.musicArtist": SONOS_ALBUM_ARTIST,
-    "object.container.playlistContainer.sameArtist": SONOS_ARTIST,
-    "object.container.playlistContainer": SONOS_PLAYLISTS,
+    CONTAINER_ALBUM_MUSICALBUM: SONOS_ALBUM,
+    CONTAINER_GENRE_MUSICGENRE: SONOS_GENRE,
+    CONTAINER_PERSON_COMPOSER: SONOS_COMPOSER,
+    CONTAINER_PERSON_MUSICARTIST: SONOS_ALBUM_ARTIST,
+    CONTAINER_PLAYLISTCONTAINER_SAMEARTIST: SONOS_ARTIST,
+    CONTAINER_PLAYLISTCONTAINER: SONOS_PLAYLISTS,
     "object.item": SONOS_OTHER_ITEM,
-    "object.item.audioItem.musicTrack": SONOS_TRACKS,
+    ITEM_AUDIOITEM_MUSICTRACK: SONOS_TRACKS,
     "object.item.audioItem.audioBroadcast": SONOS_RADIO,
 }
 
