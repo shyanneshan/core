@@ -154,7 +154,7 @@ class SonosMedia:
         self.set_basic_track_info(update_position=state_changed)
 
         if ct_md := evars["current_track_meta_data"]:
-            self.set_album_art(ct_md)
+            self._set_album_art(ct_md)
 
         et_uri_md = evars["enqueued_transport_uri_meta_data"]
         if isinstance(et_uri_md, DidlPlaylistContainer):
@@ -164,17 +164,17 @@ class SonosMedia:
             self.queue_size = int(queue_size)
 
         if audio_source == MUSIC_SRC_RADIO:
-            self.handle_radio_source(ct_md, et_uri_md)
+            self._handle_radio_source(ct_md, et_uri_md)
 
         self.write_media_player_states()
 
-    def set_album_art(self, ct_md):
+    def _set_album_art(self, ct_md):
         """Set album art if it doesn't already exist."""
         if not self.image_url:
             if album_art_uri := getattr(ct_md, "album_art_uri", None):
                 self.image_url = self.library.build_album_art_full_uri(album_art_uri)
 
-    def handle_radio_source(self, ct_md, et_uri_md):
+    def _handle_radio_source(self, ct_md, et_uri_md):
         """Set channel and title details for a radio source."""
         if et_uri_md:
             self.channel = et_uri_md.title
