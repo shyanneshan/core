@@ -41,6 +41,8 @@ from .speaker import SonosMedia, SonosSpeaker
 
 _LOGGER = logging.getLogger(__name__)
 
+SONOS_ITEM_CLASS_MUSIC_TRACK = "object.item.audioItem.musicTrack"
+
 GetBrowseImageUrlType = Callable[[str, str, "str | None"], str]
 
 
@@ -192,7 +194,7 @@ def build_item_response(
     # Can't be extracted from track info
     if (
         payload["search_type"] == MediaType.ALBUM
-        and media[0].item_class == "object.item.audioItem.musicTrack"
+        and media[0].item_class == SONOS_ITEM_CLASS_MUSIC_TRACK
     ):
         item = get_media(media_library, payload["idstring"], SONOS_ALBUM_ARTIST)
         title = getattr(item, "title", None)
@@ -441,7 +443,7 @@ def favorites_folder_payload(
 
 def get_media_type(item: DidlObject) -> str:
     """Extract media type of item."""
-    if item.item_class == "object.item.audioItem.musicTrack":
+    if item.item_class == SONOS_ITEM_CLASS_MUSIC_TRACK:
         return SONOS_TRACKS
 
     if (
@@ -481,7 +483,7 @@ def can_expand(item: DidlObject) -> bool:
 
 def get_content_id(item: DidlObject) -> str:
     """Extract content id or uri."""
-    if item.item_class == "object.item.audioItem.musicTrack":
+    if item.item_class == SONOS_ITEM_CLASS_MUSIC_TRACK:
         return cast(str, item.get_uri())
     return cast(str, item.item_id)
 
