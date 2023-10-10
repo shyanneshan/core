@@ -588,7 +588,7 @@ class SonosDiscoveryManager:
 
 
 async def async_remove_config_entry_device(
-    hass: HomeAssistant, config_entry: ConfigEntry, device_entry: dr.DeviceEntry
+    hass: HomeAssistant, _: ConfigEntry, device_entry: dr.DeviceEntry
 ) -> bool:
     """Remove Sonos config entry from a device."""
     known_devices = hass.data[DATA_SONOS].discovered.keys()
