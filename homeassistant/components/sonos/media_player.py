@@ -594,7 +594,7 @@ class SonosMediaPlayerEntity(SonosEntity, MediaPlayerEntity):
             soco.play_from_queue(0)
 
     @soco_error()
-    def _music_or_track(self, enqueue, is_radio, soco):
+    def _music_or_track(self, enqueue, media_id, is_radio, soco):
         # If media ID is a relative URL, we serve it from HA.
         media_id = async_process_play_media_url(self.hass, media_id)
 
