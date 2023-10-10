@@ -62,7 +62,7 @@ def soco_error(
             args_soco = next((arg for arg in args if isinstance(arg, SoCo)), None)
             try:
                 result = funct(self, *args, **kwargs)
-            except (OSError, SoCoException, SoCoUPnPException, Timeout) as err:
+            except (OSError, SoCoException, SoCoUPnPException) as err:
                 error_code = getattr(err, "error_code", None)
                 function = funct.__qualname__
                 if errorcodes and error_code in errorcodes:

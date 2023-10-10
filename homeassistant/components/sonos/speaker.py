@@ -816,101 +816,105 @@ class SonosSpeaker:
         self.event_stats.process(event)
         self.hass.async_create_task(self.create_update_groups_coro(event))
 
+    def get_soco_group(self) -> list[str]:
+        """Ask SoCo cache for existing topology."""
+        coordinator_uid = self.soco.uid
+        joined_uids = []
+
+        with contextlib.suppress(OSError, SoCoException):
+            if self.soco.group and self.soco.group.coordinator:
+                coordinator_uid = self.soco.group.coordinator.uid
+                joined_uids = [
+                    p.uid
+                    for p in self.soco.group.members
+                    if p.uid != coordinator_uid and p.is_visible
+                ]
+
+        return [coordinator_uid] + joined_uids
+
+    async def async_extract_group_from_event(
+        self, event: SonosEvent | None
+    ) -> list[str]:
+        """Extract group layout from a topology event."""
+        if event and event.zone_player_uui_ds_in_group:
+            assert isinstance(event.zone_player_uui_ds_in_group, str)
+            return event.zone_player_uui_ds_in_group.split(",")
+
+        return await self.hass.async_add_executor_job(self.get_soco_group)
+
+    @callback
+    def async_regroup(self, group: list[str]) -> None:
+        """Rebuild internal group layout."""
+        if (
+            group == [self.soco.uid]
+            and self.sonos_group == [self]
+            and self.sonos_group_entities
+        ):
+            return
+
+        entity_registry = er.async_get(self.hass)
+        sonos_group, sonos_group_entities = self.build_sonos_group(
+            group, entity_registry
+        )
+
+        if self.sonos_group_entities == sonos_group_entities:
+            return
+
+        # Update group state
+        self.coordinator = None
+        self.sonos_group = sonos_group
+        self.sonos_group_entities = sonos_group_entities
+        self.async_write_entity_states()
+
+        # update joined speakers
+        for joined_uid in group[1:]:
+            joined_speaker: SonosSpeaker = self.hass.data[DATA_SONOS].discovered.get(
+                joined_uid
+            )
+            if joined_speaker:
+                joined_speaker.coordinator = self
+                joined_speaker.sonos_group = sonos_group
+                joined_speaker.sonos_group_entities = sonos_group_entities
+                joined_speaker.async_write_entity_states()
+
+        _LOGGER.debug("Regrouped %s: %s", self.zone_name, self.sonos_group_entities)
+
+    def build_sonos_group(self, group: list[str], entity_registry) -> tuple[list, list]:
+        sonos_group = []
+        sonos_group_entities = []
+        for uid in group:
+            speaker = self.hass.data[DATA_SONOS].discovered.get(uid)
+            if not speaker:
+                self._group_members_missing.add(uid)
+                _LOGGER.debug(
+                    "%s group member unavailable (%s), will try again",
+                    self.zone_name,
+                    uid,
+                )
+                return (None, None)
+
+            self._group_members_missing.discard(uid)
+            sonos_group.append(speaker)
+            entity_id = cast(
+                str, entity_registry.async_get_entity_id(MP_DOMAIN, DOMAIN, uid)
+            )
+            sonos_group_entities.append(entity_id)
+
+        return sonos_group, sonos_group_entities
+
+    async def async_handle_group_event(self, event: SonosEvent | None) -> None:
+        """Get async lock and handle event."""
+        async with self.hass.data[DATA_SONOS].topology_condition:
+            group = await self.async_extract_group_from_event(event)
+
+            if self.soco.uid == group[0]:
+                self.async_regroup(group)
+
+                self.hass.data[DATA_SONOS].topology_condition.notify_all()
+
     def create_update_groups_coro(self, event: SonosEvent | None = None) -> Coroutine:
         """Handle callback for topology change event."""
-
-        def _get_soco_group() -> list[str]:
-            """Ask SoCo cache for existing topology."""
-            coordinator_uid = self.soco.uid
-            joined_uids = []
-
-            with contextlib.suppress(OSError, SoCoException):
-                if self.soco.group and self.soco.group.coordinator:
-                    coordinator_uid = self.soco.group.coordinator.uid
-                    joined_uids = [
-                        p.uid
-                        for p in self.soco.group.members
-                        if p.uid != coordinator_uid and p.is_visible
-                    ]
-
-            return [coordinator_uid] + joined_uids
-
-        async def _async_extract_group(event: SonosEvent | None) -> list[str]:
-            """Extract group layout from a topology event."""
-            group = event and event.zone_player_uui_ds_in_group
-            if group:
-                assert isinstance(group, str)
-                return group.split(",")
-
-            return await self.hass.async_add_executor_job(_get_soco_group)
-
-        @callback
-        def _async_regroup(group: list[str]) -> None:
-            """Rebuild internal group layout."""
-            if (
-                group == [self.soco.uid]
-                and self.sonos_group == [self]
-                and self.sonos_group_entities
-            ):
-                # Skip updating existing single speakers in polling mode
-                return
-
-            entity_registry = er.async_get(self.hass)
-            sonos_group = []
-            sonos_group_entities = []
-
-            for uid in group:
-                speaker = self.hass.data[DATA_SONOS].discovered.get(uid)
-                if speaker:
-                    self._group_members_missing.discard(uid)
-                    sonos_group.append(speaker)
-                    entity_id = cast(
-                        str, entity_registry.async_get_entity_id(MP_DOMAIN, DOMAIN, uid)
-                    )
-                    sonos_group_entities.append(entity_id)
-                else:
-                    self._group_members_missing.add(uid)
-                    _LOGGER.debug(
-                        "%s group member unavailable (%s), will try again",
-                        self.zone_name,
-                        uid,
-                    )
-                    return
-
-            if self.sonos_group_entities == sonos_group_entities:
-                # Useful in polling mode for speakers with stereo pairs or surrounds
-                # as those "invisible" speakers will bypass the single speaker check
-                return
-
-            self.coordinator = None
-            self.sonos_group = sonos_group
-            self.sonos_group_entities = sonos_group_entities
-            self.async_write_entity_states()
-
-            for joined_uid in group[1:]:
-                joined_speaker: SonosSpeaker = self.hass.data[
-                    DATA_SONOS
-                ].discovered.get(joined_uid)
-                if joined_speaker:
-                    joined_speaker.coordinator = self
-                    joined_speaker.sonos_group = sonos_group
-                    joined_speaker.sonos_group_entities = sonos_group_entities
-                    joined_speaker.async_write_entity_states()
-
-            _LOGGER.debug("Regrouped %s: %s", self.zone_name, self.sonos_group_entities)
-
-        async def _async_handle_group_event(event: SonosEvent | None) -> None:
-            """Get async lock and handle event."""
-
-            async with self.hass.data[DATA_SONOS].topology_condition:
-                group = await _async_extract_group(event)
-
-                if self.soco.uid == group[0]:
-                    _async_regroup(group)
-
-                    self.hass.data[DATA_SONOS].topology_condition.notify_all()
-
-        return _async_handle_group_event(event)
+        return self.async_handle_group_event(event)
 
     @soco_error()
     def join(self, speakers: list[SonosSpeaker]) -> list[SonosSpeaker]:
@@ -922,11 +926,10 @@ class SonosSpeaker:
             group = self.sonos_group.copy()
 
         for speaker in speakers:
-            if speaker.soco.uid != self.soco.uid:
-                if speaker not in group:
-                    speaker.soco.join(self.soco)
-                    speaker.coordinator = self
-                    group.append(speaker)
+            if speaker.soco.uid != self.soco.uid and speaker not in group:
+                speaker.soco.join(self.soco)
+                speaker.coordinator = self
+                group.append(speaker)
 
         return group
 
