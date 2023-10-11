@@ -364,6 +364,62 @@ class SonosDiscoveryManager:
         except (OSError, SoCoException, Timeout) as ex:
             _LOGGER.warning("Failed to add SonosSpeaker using %s: %s", soco, ex)
 
+    def _handle_exception_manual_hosts(self, ip_addr, exception):
+        """Handle exceptions for manual hosts."""
+        if not self.hosts_in_error.get(ip_addr):
+            _LOGGER.warning(
+                "Could not get visible Sonos devices from %s: %s",
+                ip_addr,
+                exception,
+            )
+            self.hosts_in_error[ip_addr] = True
+        else:
+            _LOGGER.debug(
+                "Could not get visible Sonos devices from %s: %s",
+                ip_addr,
+                exception,
+            )
+
+    def _add_new_host(self, visible_zones, ip_addr):
+        """Handle adding a new host."""
+        if new_hosts := {
+            x.ip_address for x in visible_zones if x.ip_address not in self.hosts
+        }:
+            _LOGGER.debug("Adding to manual hosts: %s", new_hosts)
+            self.hosts.update(new_hosts)
+
+        if self.is_device_invisible(ip_addr):
+            _LOGGER.debug("Discarding %s from manual hosts", ip_addr)
+            self.hosts.discard(ip_addr)
+
+    async def _unknown_or_unavailable_speaker(self, known_speaker, soco, ip_addr):
+        """Handle unknown or unavailable speakers."""
+        if not known_speaker:
+            try:
+                await self._async_handle_discovery_message(
+                    soco.uid,
+                    ip_addr,
+                    "manual zone scan",
+                )
+            except (
+                OSError,
+                SoCoException,
+                Timeout,
+                asyncio.TimeoutError,
+            ) as ex:
+                _LOGGER.warning("Discovery message failed to %s : %s", ip_addr, ex)
+        elif not known_speaker.available:
+            try:
+                await self.hass.async_add_executor_job(known_speaker.ping)
+                # Only send the message if the ping was successful.
+                async_dispatcher_send(
+                    self.hass,
+                    f"{SONOS_SPEAKER_ACTIVITY}-{soco.uid}",
+                    "manual zone scan",
+                )
+            except SonosUpdateError:
+                _LOGGER.debug("Manual poll to %s failed, keeping unavailable", ip_addr)
+
     async def async_poll_manual_hosts(
         self, now: datetime.datetime | None = None
     ) -> None:
@@ -384,30 +440,14 @@ class SonosDiscoveryManager:
                 Timeout,
                 asyncio.TimeoutError,
             ) as ex:
-                if not self.hosts_in_error.get(ip_addr):
-                    _LOGGER.warning(
-                        "Could not get visible Sonos devices from %s: %s", ip_addr, ex
-                    )
-                    self.hosts_in_error[ip_addr] = True
-                else:
-                    _LOGGER.debug(
-                        "Could not get visible Sonos devices from %s: %s", ip_addr, ex
-                    )
+                self._handle_exception_manual_hosts(ip_addr, ex)
                 continue
 
             if self.hosts_in_error.pop(ip_addr, None):
                 _LOGGER.info("Connection reestablished to Sonos device %s", ip_addr)
             # Each speaker has the topology for other online speakers, so add them in here if they were not
             # configured. The metadata is already in Soco for these.
-            if new_hosts := {
-                x.ip_address for x in visible_zones if x.ip_address not in self.hosts
-            }:
-                _LOGGER.debug("Adding to manual hosts: %s", new_hosts)
-                self.hosts.update(new_hosts)
-
-            if self.is_device_invisible(ip_addr):
-                _LOGGER.debug("Discarding %s from manual hosts", ip_addr)
-                self.hosts.discard(ip_addr)
+            self._add_new_host(visible_zones, ip_addr)
 
         # Loop through each configured host that is not in error.  Send a discovery message
         # if a speaker does not already exist, or ping the speaker if it is unavailable.
@@ -425,33 +465,7 @@ class SonosDiscoveryManager:
                 ),
                 None,
             )
-            if not known_speaker:
-                try:
-                    await self._async_handle_discovery_message(
-                        soco.uid,
-                        ip_addr,
-                        "manual zone scan",
-                    )
-                except (
-                    OSError,
-                    SoCoException,
-                    Timeout,
-                    asyncio.TimeoutError,
-                ) as ex:
-                    _LOGGER.warning("Discovery message failed to %s : %s", ip_addr, ex)
-            elif not known_speaker.available:
-                try:
-                    await self.hass.async_add_executor_job(known_speaker.ping)
-                    # Only send the message if the ping was successful.
-                    async_dispatcher_send(
-                        self.hass,
-                        f"{SONOS_SPEAKER_ACTIVITY}-{soco.uid}",
-                        "manual zone scan",
-                    )
-                except SonosUpdateError:
-                    _LOGGER.debug(
-                        "Manual poll to %s failed, keeping unavailable", ip_addr
-                    )
+            await self._unknown_or_unavailable_speaker(known_speaker, soco, ip_addr)
 
         self.data.hosts_heartbeat = async_call_later(
             self.hass, DISCOVERY_INTERVAL.total_seconds(), self.async_poll_manual_hosts
